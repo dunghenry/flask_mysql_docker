@@ -1,0 +1,32 @@
+version: "3.8"
+services:
+  web:
+    container_name: web_flask
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 5000:5000
+    volumes:
+      - ./:/app
+    networks:
+      - trandung
+  mysql:
+    image: mysql
+    container_name: mysql_f
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: flask_mysql
+    expose:
+      - "3306"
+    ports:
+      - "3306:3306"
+    networks:
+      - trandung
+volumes:
+  mysql:
+networks:
+  trandung:

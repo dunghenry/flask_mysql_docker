@@ -1,20 +1,20 @@
-from json import JSONEncoder
+
 from flask import Flask, jsonify, request, render_template, url_for, redirect
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from dotenv import dotenv_values
 import mysql.connector
 import os
-from bson import json_util
 load_dotenv()
 config = dotenv_values(".env")
 # print(config['DATABASE'])
 
 mydb = mysql.connector.connect(
-    host="localhost",
+    host="mysql",
     user="root",
-    password="",
-    database=config['DATABASE']
+    password="admin",
+    port="3306",
+    database='flask_mysql'
 )
 
 mycursor = mydb.cursor()
@@ -31,10 +31,6 @@ if config['DATABASE'] not in list_db:
     mycursor.execute(createddb)
 else:
     print("Connected to database " + config['DATABASE'])
-
-
-class CustomJSONEncoder(JSONEncoder):
-    def default(self, obj): return json_util.default(obj)
 
 
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
@@ -103,7 +99,81 @@ def get_all_todo():
     })
 
 
-app.json_encoder = CustomJSONEncoder
+@app.route("/api/v1/todos/<string:id>", methods=['GET'])
+def get_todo_by_id(id):
+    sql = "SELECT * FROM todos WHERE id = %s"
+    query = (id, )
+    mycursor.execute(sql, query)
+    myresult = mycursor.fetchall()
+    if myresult:
+        rs = {"id": myresult[0][0], "title": myresult[0][1],
+              "des": myresult[0][2], 'completed': "false" if myresult[0][3] == 0 else 'true'}
+        return jsonify({
+            "status": 200,
+            "data": rs
+        })
+    else:
+        return jsonify({
+            "status": 404,
+            "message": "Todo not found"
+        })
+
+
+@app.route("/api/v1/todos/<string:id>", methods=['DELETE'])
+def delete_todo_by_id(id):
+    sql = "SELECT * FROM todos WHERE id = %s"
+    query = (id, )
+    mycursor.execute(sql, query)
+    myresult = mycursor.fetchall()
+    if myresult:
+        sql = "DELETE FROM todos WHERE id = %s"
+        mycursor.execute(sql, query)
+        mydb.commit()
+        if mycursor.rowcount == 1:
+            return jsonify({
+                "status": 200,
+                "message": "Deleted successfully"
+            })
+        else:
+            return jsonify({
+                "status": 400,
+                "message": "Deleted failed"
+            })
+    else:
+        return jsonify({
+            "status": 404,
+            "message": "Todo not found"
+        })
+
+
+@app.route("/api/v1/todos/<string:id>", methods=['PUT'])
+def update_todo_by_id(id):
+    req = request.json
+    sql = "SELECT * FROM todos WHERE id = %s"
+    query = (id, )
+    mycursor.execute(sql, query)
+    myresult = mycursor.fetchall()
+    if myresult:
+        sql = "UPDATE todos SET title = %s, des = %s, completed = %s WHERE id = %s"
+        val = (req["title"], req["des"], req["completed"], id)
+        mycursor.execute(sql, val)
+        mydb.commit()
+        if mycursor.rowcount == 1:
+            return jsonify({
+                "status": 200,
+                "message": "Updated successfully"
+            })
+        else:
+            return jsonify({
+                "status": 400,
+                "message": "Updated failed"
+            })
+    else:
+        return jsonify({
+            "status": 404,
+            "message": "Todo not found"
+        })
+
 
 if __name__ == "__main__":
     app.run(debug=True)
